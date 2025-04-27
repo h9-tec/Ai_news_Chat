@@ -45,7 +45,7 @@ Python 3.8+
 
 1. Clone the repository:
 ```bash
-git clone (chat with AI news)[https://github.com/h9-tec/Ai_news_Chat]
+git clone https://github.com/h9-tec/Ai_news_Chat
 cd ai_news_aggregator
 ```
 
