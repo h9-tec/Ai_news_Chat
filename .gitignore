@@ -1,0 +1,24 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+build/
+dist/
+*.egg-info/
+.DS_Store
+.env
+.env.*
+*.sqlite3
+*.db
+*.log
+.idea/
+.vscode/
+*.bak
+*.swp
+*.swo
+*.~
+# Add any other sensitive or local config files below 

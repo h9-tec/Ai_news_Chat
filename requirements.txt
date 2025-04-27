@@ -1,0 +1,10 @@
+scrapy
+gradio
+requests
+beautifulsoup4
+sentence-transformers
+scikit-learn
+apscheduler
+openai
+python-dotenv
+numpy 
