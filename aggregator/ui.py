@@ -6,6 +6,8 @@ import os
 import subprocess
 import sys
 import time
+from .tool_agent import search_with_agent
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +54,34 @@ def ensure_port_available(port):
             return False
 
 def launch():
-    with gr.Blocks() as demo:
-        gr.Markdown("## 🗞️ AI News Chatbot")
+    with gr.Blocks(css="""
+        .tool-result {
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background-color: #23272f;
+        }
+        .tool-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 18px;
+        }
+        .tool-description {
+            margin: 8px 0;
+        }
+        .tool-tags {
+            font-size: 14px;
+            color: #666;
+            margin-top: 8px;
+        }
+    """) as demo:
+        gr.Markdown("# 🤖📰 AI News Chatbot")
         gr.Markdown("Chat with the latest AI news or generate a daily summary.")
         
         backend = gr.Radio(
             choices=["ollama", "groq"],
-            value="ollama",
+            value="groq",  # Change default to groq for better performance
             label="LLM Backend",
             info="Choose the AI model to use"
         )
@@ -83,6 +106,28 @@ def launch():
         with gr.Tab("Daily Summary"):
             summary_out = gr.Markdown()
             gen = gr.Button("Generate Today's Summary", variant="primary")
+
+        with gr.Tab("Tool Search"):
+            tool_query = gr.Textbox(
+                placeholder="Search for AI tools (e.g. video editing, image generation)",
+                label="Tool Search Query",
+                scale=4
+            )
+            num_results = gr.Dropdown(
+                choices=["5", "10", "20", "50", "All"],
+                value="5",
+                label="Number of Results",
+                scale=1
+            )
+            with gr.Row():
+                tool_search_btn = gr.Button("Search Tools", scale=1, variant="primary")
+                clear_tools_btn = gr.Button("Clear Results", scale=1)
+            
+            # Add a status message to show when search is in progress
+            tool_status = gr.Markdown("Enter a search term above and click 'Search Tools'")
+            
+            # Use HTML for better formatted results
+            tool_results = gr.HTML()
 
         def _send(msg, hist, backend_choice):
             if not msg:
@@ -109,6 +154,50 @@ def launch():
 
         def _clear():
             return [], ""
+            
+        def _clear_tools():
+            return "", "Enter a search term above and click 'Search Tools'"
+
+        def _tool_search(query, num_results, backend_choice):
+            if not query:
+                yield "Please enter a search query.", "Enter a search term above and click 'Search Tools'"
+                return
+            status_msg = "Searching for AI tools related to your query... This may take a moment."
+            yield status_msg, ""
+            try:
+                result = search_with_agent(query, backend_choice, num_results)
+                # Robust tool block splitting: split on blank lines or 'Tool:'
+                tool_blocks = re.split(r'\n(?=Tool: )|\n\s*\n', result)
+                tools = []
+                for block in tool_blocks:
+                    lines = block.strip().split('\n')
+                    current_tool = {}
+                    for line in lines:
+                        line = line.strip()
+                        if line.startswith("Tool:"):
+                            current_tool['name'] = line[5:].strip()
+                        elif line.startswith("Description:"):
+                            current_tool['description'] = line[12:].strip()
+                        elif line.startswith("Pricing:"):
+                            current_tool['pricing'] = line[8:].strip()
+                    if 'name' in current_tool:
+                        tools.append(current_tool)
+                # Format as HTML
+                if not tools:
+                    yield "No structured tools parsed. Raw output:", f'<pre style="color:red">{result}</pre>'
+                    return
+                html = ""
+                for tool in tools:
+                    html += f'<div class="tool-result">'
+                    html += f'<div class="tool-title">{tool.get("name", "Unknown Tool")}</div>'
+                    if 'description' in tool:
+                        html += f'<div class="tool-description">{tool.get("description", "")}</div>'
+                    if 'pricing' in tool:
+                        html += f'<div class="tool-tags"><b>Pricing:</b> {tool["pricing"]}</div>'
+                    html += '</div>'
+                yield "Search completed successfully.", html
+            except Exception as e:
+                yield "Search failed. Please try again with a different query.", ""
 
         # Event handlers
         send.click(
@@ -132,6 +221,23 @@ def launch():
             _summ,
             inputs=backend,
             outputs=summary_out
+        )
+
+        tool_search_btn.click(
+            _tool_search,
+            inputs=[tool_query, num_results, backend],
+            outputs=[tool_status, tool_results]
+        )
+        
+        clear_tools_btn.click(
+            _clear_tools,
+            outputs=[tool_results, tool_status]
+        )
+        
+        tool_query.submit(
+            _tool_search,
+            inputs=[tool_query, num_results, backend],
+            outputs=[tool_status, tool_results]
         )
 
     try:
