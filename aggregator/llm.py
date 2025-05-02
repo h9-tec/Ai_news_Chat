@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class LLM:
-    def __init__(self, backend: str = "ollama"):
+    def __init__(self, backend: str = "gemini"):
         assert backend in {"ollama", "groq", "gemini"}
         self.backend = backend
 
@@ -78,55 +78,38 @@ class LLM:
 
         Summary:"""
         try:
-            if self.backend == "ollama":
-                return self._generate_ollama(prompt, max_tokens)
-            elif self.backend == "groq":
-                try:
-                    return self._generate_groq(prompt, max_tokens)
-                except (requests.exceptions.HTTPError, ValueError) as e:
-                    logger.warning(f"Groq API failed ({str(e)}), falling back to Gemini")
-                    self.backend = "gemini"
-                    try:
-                        return self._generate_gemini(prompt, max_tokens)
-                    except (requests.exceptions.HTTPError, ValueError) as e2:
-                        logger.warning(f"Gemini API failed ({str(e2)}), falling back to Ollama")
-                        self.backend = "ollama"
-                        return self._generate_ollama(prompt, max_tokens)
-            elif self.backend == "gemini":
+            if self.backend == "gemini":
                 try:
                     return self._generate_gemini(prompt, max_tokens)
-                except (requests.exceptions.HTTPError, ValueError) as e:
-                    logger.warning(f"Gemini API failed ({str(e)}), falling back to Ollama")
+                except Exception as e:
+                    logger.warning(f"Gemini API failed ({str(e)}), falling back to Groq")
+                    self.backend = "groq"
+            if self.backend == "groq":
+                try:
+                    return self._generate_groq(prompt, max_tokens)
+                except Exception as e:
+                    logger.warning(f"Groq API failed ({str(e)}), falling back to Ollama")
                     self.backend = "ollama"
-                    return self._generate_ollama(prompt, max_tokens)
+            return self._generate_ollama(prompt, max_tokens)
         except Exception as e:
             logger.error(f"Arabic summarization failed: {str(e)}")
             return f"Error generating Arabic summary: {str(e)}"
 
-    # simple, blocking generation
     def generate(self, prompt: str, max_tokens: int = 512) -> str:
         try:
-            if self.backend == "ollama":
-                return self._generate_ollama(prompt, max_tokens)
-            elif self.backend == "groq":
-                try:
-                    return self._generate_groq(prompt, max_tokens)
-                except (requests.exceptions.HTTPError, ValueError) as e:
-                    logger.warning(f"Groq API failed ({str(e)}), falling back to Gemini")
-                    self.backend = "gemini"
-                    try:
-                        return self._generate_gemini(prompt, max_tokens)
-                    except (requests.exceptions.HTTPError, ValueError) as e2:
-                        logger.warning(f"Gemini API failed ({str(e2)}), falling back to Ollama")
-                        self.backend = "ollama"
-                        return self._generate_ollama(prompt, max_tokens)
-            elif self.backend == "gemini":
+            if self.backend == "gemini":
                 try:
                     return self._generate_gemini(prompt, max_tokens)
-                except (requests.exceptions.HTTPError, ValueError) as e:
-                    logger.warning(f"Gemini API failed ({str(e)}), falling back to Ollama")
+                except Exception as e:
+                    logger.warning(f"Gemini API failed ({str(e)}), falling back to Groq")
+                    self.backend = "groq"
+            if self.backend == "groq":
+                try:
+                    return self._generate_groq(prompt, max_tokens)
+                except Exception as e:
+                    logger.warning(f"Groq API failed ({str(e)}), falling back to Ollama")
                     self.backend = "ollama"
-                    return self._generate_ollama(prompt, max_tokens)
+            return self._generate_ollama(prompt, max_tokens)
         except Exception as e:
             logger.error(f"Generation failed: {str(e)}")
             return f"Error generating response: {str(e)}" 

@@ -15,5 +15,6 @@ EXPOSE 8000
 
 ENV PYTHONUNBUFFERED=1
 ENV OLLAMA_MODEL=aya:8b
+ENV LLM_BACKEND=gemini
 
 CMD ["uvicorn", "aggregator.api:app", "--host", "0.0.0.0", "--port", "8000"] 
