@@ -16,7 +16,7 @@ engine = create_engine('sqlite:///news.db')
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Initialize LLM for summarization
-llm = LLM(backend="groq")  # or "ollama" based on your preference
+llm = LLM(backend=os.getenv("LLM_BACKEND", "gemini"))
 
 class EmailService:
     def __init__(self):
