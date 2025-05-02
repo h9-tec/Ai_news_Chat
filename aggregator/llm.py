@@ -1,14 +1,14 @@
 """Unified interface for Ollama & Groq"""
 from __future__ import annotations
 import requests, os
-from .config import OLLAMA_URL, OLLAMA_MODEL, GROQ_API_KEY, GROQ_MODEL
+from .config import OLLAMA_URL, OLLAMA_MODEL, GROQ_API_KEY, GROQ_MODEL, GEMINI_API_KEY, GEMINI_MODEL
 import logging
 
 logger = logging.getLogger(__name__)
 
 class LLM:
     def __init__(self, backend: str = "ollama"):
-        assert backend in {"ollama", "groq"}
+        assert backend in {"ollama", "groq", "gemini"}
         self.backend = backend
 
     def _generate_ollama(self, prompt: str, max_tokens: int = 512) -> str:
@@ -52,6 +52,21 @@ class LLM:
         r.raise_for_status()
         return r.json()["choices"][0]["message"]["content"].strip()
 
+    def _generate_gemini(self, prompt: str, max_tokens: int = 512) -> str:
+        if not GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY not set")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        headers = {"Content-Type": "application/json"}
+        data = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"maxOutputTokens": max_tokens}
+        }
+        r = requests.post(url, json=data, headers=headers, timeout=60)
+        r.raise_for_status()
+        resp = r.json()
+        # Gemini API returns candidates[0].content.parts[0].text
+        return resp["candidates"][0]["content"]["parts"][0]["text"].strip()
+
     def summarize_arabic(self, text: str, max_tokens: int = 512) -> str:
         """Generate an Arabic summary while preserving technical terms in English."""
         prompt = f"""Please provide a concise summary of the following text in Arabic. 
@@ -62,15 +77,26 @@ class LLM:
         {text}
 
         Summary:"""
-        
         try:
             if self.backend == "ollama":
                 return self._generate_ollama(prompt, max_tokens)
-            else:
+            elif self.backend == "groq":
                 try:
                     return self._generate_groq(prompt, max_tokens)
                 except (requests.exceptions.HTTPError, ValueError) as e:
-                    logger.warning(f"Groq API failed ({str(e)}), falling back to Ollama")
+                    logger.warning(f"Groq API failed ({str(e)}), falling back to Gemini")
+                    self.backend = "gemini"
+                    try:
+                        return self._generate_gemini(prompt, max_tokens)
+                    except (requests.exceptions.HTTPError, ValueError) as e2:
+                        logger.warning(f"Gemini API failed ({str(e2)}), falling back to Ollama")
+                        self.backend = "ollama"
+                        return self._generate_ollama(prompt, max_tokens)
+            elif self.backend == "gemini":
+                try:
+                    return self._generate_gemini(prompt, max_tokens)
+                except (requests.exceptions.HTTPError, ValueError) as e:
+                    logger.warning(f"Gemini API failed ({str(e)}), falling back to Ollama")
                     self.backend = "ollama"
                     return self._generate_ollama(prompt, max_tokens)
         except Exception as e:
@@ -82,11 +108,23 @@ class LLM:
         try:
             if self.backend == "ollama":
                 return self._generate_ollama(prompt, max_tokens)
-            else:
+            elif self.backend == "groq":
                 try:
                     return self._generate_groq(prompt, max_tokens)
                 except (requests.exceptions.HTTPError, ValueError) as e:
-                    logger.warning(f"Groq API failed ({str(e)}), falling back to Ollama")
+                    logger.warning(f"Groq API failed ({str(e)}), falling back to Gemini")
+                    self.backend = "gemini"
+                    try:
+                        return self._generate_gemini(prompt, max_tokens)
+                    except (requests.exceptions.HTTPError, ValueError) as e2:
+                        logger.warning(f"Gemini API failed ({str(e2)}), falling back to Ollama")
+                        self.backend = "ollama"
+                        return self._generate_ollama(prompt, max_tokens)
+            elif self.backend == "gemini":
+                try:
+                    return self._generate_gemini(prompt, max_tokens)
+                except (requests.exceptions.HTTPError, ValueError) as e:
+                    logger.warning(f"Gemini API failed ({str(e)}), falling back to Ollama")
                     self.backend = "ollama"
                     return self._generate_ollama(prompt, max_tokens)
         except Exception as e:
