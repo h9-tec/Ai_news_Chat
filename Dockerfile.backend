@@ -1,0 +1,19 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y build-essential gcc
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY aggregator ./aggregator
+COPY models.py .
+COPY news.db* .
+
+EXPOSE 8000
+
+ENV PYTHONUNBUFFERED=1
+ENV OLLAMA_MODEL=aya:8b
+
+CMD ["uvicorn", "aggregator.api:app", "--host", "0.0.0.0", "--port", "8000"] 

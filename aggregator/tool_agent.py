@@ -66,7 +66,7 @@ def create_tool_agent(backend: str = "ollama", model: Optional[str] = None):
         )
     else:  # ollama
         llm = Ollama(
-            model=model or os.getenv("DEFAULT_OLLAMA_MODEL", "llama3.2:latest"),
+            model=model or os.getenv("DEFAULT_OLLAMA_MODEL", "aya:8b"),
             base_url=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
             temperature=0.2,
             num_predict=512

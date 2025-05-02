@@ -3,6 +3,10 @@ from __future__ import annotations
 import sqlite3, pickle, time
 from typing import Dict, Any
 from .config import DB_PATH, EMBED_DIM
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import os
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS articles (
@@ -18,6 +22,33 @@ CREATE TABLE IF NOT EXISTS articles (
 CREATE INDEX IF NOT EXISTS idx_date   ON articles(published_ts);
 CREATE INDEX IF NOT EXISTS idx_source ON articles(source);
 """
+
+# Create database URL
+DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./news.db')
+
+# Create SQLAlchemy engine
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False}  # Needed for SQLite
+)
+
+# Create SessionLocal class
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Create Base class
+Base = declarative_base()
+
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Create all tables
+def init_db():
+    Base.metadata.create_all(bind=engine)
 
 def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)

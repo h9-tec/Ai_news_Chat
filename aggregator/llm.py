@@ -33,7 +33,17 @@ class LLM:
         data = {
             "model": GROQ_MODEL,
             "messages": [
-                {"role": "system", "content": "You are a helpful AI news assistant."},
+                {
+                    "role": "system", 
+                    "content": """You are a helpful AI news assistant specialized in Arabic summarization. 
+                    When summarizing technical content:
+                    1. Write the summary in Arabic
+                    2. Keep all technical terms, scientific terms, and proper nouns in English
+                    3. Maintain the original meaning and context
+                    4. Use clear and professional Arabic language
+                    5. Preserve any numerical values and measurements as is
+                    6. Keep company names, product names, and technology names in English"""
+                },
                 {"role": "user", "content": prompt},
             ],
             "max_tokens": max_tokens,
@@ -41,6 +51,31 @@ class LLM:
         r = requests.post("https://api.groq.com/openai/v1/chat/completions", json=data, headers=headers, timeout=600)
         r.raise_for_status()
         return r.json()["choices"][0]["message"]["content"].strip()
+
+    def summarize_arabic(self, text: str, max_tokens: int = 512) -> str:
+        """Generate an Arabic summary while preserving technical terms in English."""
+        prompt = f"""Please provide a concise summary of the following text in Arabic. 
+        Keep all technical terms, scientific terms, and proper nouns in English.
+        Do not translate any technical or scientific terminology.
+
+        Text to summarize:
+        {text}
+
+        Summary:"""
+        
+        try:
+            if self.backend == "ollama":
+                return self._generate_ollama(prompt, max_tokens)
+            else:
+                try:
+                    return self._generate_groq(prompt, max_tokens)
+                except (requests.exceptions.HTTPError, ValueError) as e:
+                    logger.warning(f"Groq API failed ({str(e)}), falling back to Ollama")
+                    self.backend = "ollama"
+                    return self._generate_ollama(prompt, max_tokens)
+        except Exception as e:
+            logger.error(f"Arabic summarization failed: {str(e)}")
+            return f"Error generating Arabic summary: {str(e)}"
 
     # simple, blocking generation
     def generate(self, prompt: str, max_tokens: int = 512) -> str:

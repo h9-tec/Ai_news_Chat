@@ -8,6 +8,8 @@ import sys
 import time
 from .tool_agent import search_with_agent
 import re
+from sqlalchemy.orm import Session
+from .models import Subscriber
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +131,22 @@ def launch():
             # Use HTML for better formatted results
             tool_results = gr.HTML()
 
+        with gr.Tab("Subscribe"):
+            gr.Markdown("## Subscribe to Daily AI News Summary")
+            email_input = gr.Textbox(
+                placeholder="Enter your email address",
+                label="Email Address",
+                scale=4
+            )
+            with gr.Row():
+                subscribe_btn = gr.Button("Subscribe", variant="primary")
+                unsubscribe_btn = gr.Button("Unsubscribe")
+            subscription_status = gr.Markdown("")
+
+        def is_valid_email(email):
+            pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            return bool(re.match(pattern, email))
+
         def _send(msg, hist, backend_choice):
             if not msg:
                 return "", hist
@@ -199,6 +217,50 @@ def launch():
             except Exception as e:
                 yield "Search failed. Please try again with a different query.", ""
 
+        def handle_subscribe(email):
+            try:
+                # Strict email validation
+                if not is_valid_email(email):
+                    return "Please enter a valid email address."
+                
+                # Add to database
+                with Session() as session:
+                    existing = session.query(Subscriber).filter_by(email=email).first()
+                    if existing:
+                        if existing.is_active:
+                            return "You are already subscribed!"
+                        else:
+                            existing.is_active = True
+                            session.commit()
+                            return "Welcome back! Your subscription has been reactivated."
+                    
+                    new_subscriber = Subscriber(email=email)
+                    session.add(new_subscriber)
+                    session.commit()
+                    return "Successfully subscribed to AI News Daily Summary!"
+            except Exception as e:
+                logger.error(f"Error in subscription: {str(e)}")
+                return "Sorry, there was an error processing your subscription. Please try again."
+
+        def handle_unsubscribe(email):
+            try:
+                # Validate email
+                if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+                    return "Please enter a valid email address."
+                
+                # Remove from database
+                with Session() as session:
+                    subscriber = session.query(Subscriber).filter_by(email=email).first()
+                    if not subscriber or not subscriber.is_active:
+                        return "This email is not subscribed."
+                    
+                    subscriber.is_active = False
+                    session.commit()
+                    return "Successfully unsubscribed from AI News Daily Summary."
+            except Exception as e:
+                logger.error(f"Error in unsubscription: {str(e)}")
+                return "Sorry, there was an error processing your request. Please try again."
+
         # Event handlers
         send.click(
             _send,
@@ -238,6 +300,18 @@ def launch():
             _tool_search,
             inputs=[tool_query, num_results, backend],
             outputs=[tool_status, tool_results]
+        )
+
+        subscribe_btn.click(
+            handle_subscribe,
+            inputs=[email_input],
+            outputs=[subscription_status]
+        )
+        
+        unsubscribe_btn.click(
+            handle_unsubscribe,
+            inputs=[email_input],
+            outputs=[subscription_status]
         )
 
     try:
