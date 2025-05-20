@@ -5,6 +5,7 @@ from aggregator.retrieval import sort_by_source_priority
 from collections import defaultdict
 from datetime import datetime, date
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -31,9 +32,12 @@ def ensure_source_diversity(articles, max_per_source: int = 10):
 
 def run_weekly_summary():
     try:
+        # Log backend and model for debugging
+        logger.info(f"LLM_BACKEND env: {os.getenv('LLM_BACKEND')}")
+        logger.info(f"GEMINI_MODEL env: {os.getenv('GEMINI_MODEL')}")
         # Initialize services
         email_service = EmailService()
-        llm = LLM(backend="groq")  # or "ollama" based on your preference
+        llm = LLM(backend=os.getenv("LLM_BACKEND", "gemini"))
         
         # Get latest articles using the same connection as QA
         conn = connect()

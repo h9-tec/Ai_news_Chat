@@ -7,6 +7,7 @@ import datetime
 import logging
 from typing import List, Dict, Any
 from collections import defaultdict
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,8 @@ Question:
 Detailed Answer:
 """
 
-def answer(question: str, backend: str = "ollama") -> str:
+def answer(question: str, backend: str = None) -> str:
+    backend = backend or os.getenv("LLM_BACKEND", "gemini")
     try:
         # Get relevant articles
         matches = retrieve(question)
@@ -97,7 +99,8 @@ def ensure_source_diversity(articles: List[Dict[str, Any]], max_per_source: int 
     diverse_articles.sort(key=lambda x: x["timestamp"], reverse=True)
     return diverse_articles
 
-def summary_today(backend: str = "ollama") -> str:
+def summary_today(backend: str = None) -> str:
+    backend = backend or os.getenv("LLM_BACKEND", "gemini")
     try:
         # Get articles from the last 7 days (debugging window)
         conn = connect()

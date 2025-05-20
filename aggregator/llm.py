@@ -3,6 +3,7 @@ from __future__ import annotations
 import requests, os
 from .config import OLLAMA_URL, OLLAMA_MODEL, GROQ_API_KEY, GROQ_MODEL, GEMINI_API_KEY, GEMINI_MODEL
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +62,19 @@ class LLM:
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"maxOutputTokens": max_tokens}
         }
-        r = requests.post(url, json=data, headers=headers, timeout=60)
-        r.raise_for_status()
-        resp = r.json()
-        # Gemini API returns candidates[0].content.parts[0].text
-        return resp["candidates"][0]["content"]["parts"][0]["text"].strip()
+        try:
+            r = requests.post(url, json=data, headers=headers, timeout=60)
+            try:
+                r.raise_for_status()
+            except Exception as e:
+                logger.error(f"Gemini API HTTP error: {repr(e)}\nResponse: {r.text}")
+                raise
+            resp = r.json()
+            # Gemini API returns candidates[0].content.parts[0].text
+            return resp["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception as e:
+            logger.error(f"Gemini API request failed: {repr(e)}\n{traceback.format_exc()}")
+            raise
 
     def summarize_arabic(self, text: str, max_tokens: int = 512) -> str:
         """Generate an Arabic summary while preserving technical terms in English."""
@@ -82,17 +91,17 @@ class LLM:
                 try:
                     return self._generate_gemini(prompt, max_tokens)
                 except Exception as e:
-                    logger.warning(f"Gemini API failed ({str(e)}), falling back to Groq")
+                    logger.warning(f"Gemini API failed: {repr(e)}\n{traceback.format_exc()}\nFalling back to Groq")
                     self.backend = "groq"
             if self.backend == "groq":
                 try:
                     return self._generate_groq(prompt, max_tokens)
                 except Exception as e:
-                    logger.warning(f"Groq API failed ({str(e)}), falling back to Ollama")
+                    logger.warning(f"Groq API failed: {repr(e)}\n{traceback.format_exc()}\nFalling back to Ollama")
                     self.backend = "ollama"
             return self._generate_ollama(prompt, max_tokens)
         except Exception as e:
-            logger.error(f"Arabic summarization failed: {str(e)}")
+            logger.error(f"Arabic summarization failed: {repr(e)}\n{traceback.format_exc()}")
             return f"Error generating Arabic summary: {str(e)}"
 
     def generate(self, prompt: str, max_tokens: int = 512) -> str:
@@ -101,15 +110,15 @@ class LLM:
                 try:
                     return self._generate_gemini(prompt, max_tokens)
                 except Exception as e:
-                    logger.warning(f"Gemini API failed ({str(e)}), falling back to Groq")
+                    logger.warning(f"Gemini API failed: {repr(e)}\n{traceback.format_exc()}\nFalling back to Groq")
                     self.backend = "groq"
             if self.backend == "groq":
                 try:
                     return self._generate_groq(prompt, max_tokens)
                 except Exception as e:
-                    logger.warning(f"Groq API failed ({str(e)}), falling back to Ollama")
+                    logger.warning(f"Groq API failed: {repr(e)}\n{traceback.format_exc()}\nFalling back to Ollama")
                     self.backend = "ollama"
             return self._generate_ollama(prompt, max_tokens)
         except Exception as e:
-            logger.error(f"Generation failed: {str(e)}")
+            logger.error(f"Generation failed: {repr(e)}\n{traceback.format_exc()}")
             return f"Error generating response: {str(e)}" 
