@@ -1,4 +1,5 @@
 .venv/
+/.gradio
 venv/
 __pycache__/
 *.pyc
